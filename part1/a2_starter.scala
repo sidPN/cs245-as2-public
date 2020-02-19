@@ -1,3 +1,4 @@
+import org.apache.spark
 //
 // CS 245 Assignment 2, Part I starter code
 //
@@ -38,3 +39,66 @@ df = spark.sql("""
 """)
 df.show()
 df.explain(true)
+
+// Example 3
+df = spark.sql(
+  """
+    SELECT country, EU FROM Countries WHERE coastline = "yes"
+    """)
+
+// Example 4 (Problem 2)
+df = spark.sql(
+  """
+    |SELECT city
+    |FROM (
+    |SELECT city, temp
+    |FROM Cities
+    |)
+    |WHERE temp < 4
+    |""".stripMargin
+)
+
+// Problem 3
+df = spark.sql(
+  """
+    |SELECT *
+    |FROM Cities, Countries
+    |WHERE Cities.country = Countries.country AND Cities.temp < 4 AND Countries.pop > 6
+    |""".stripMargin
+)
+
+// Problem 4
+df = spark.sql(
+  """
+    |SELECT city, pop
+    |FROM Cities, Countries
+    |WHERE Cities.country = Countries.country AND Countries.pop > 6
+    |""".stripMargin
+)
+
+// Problem 5
+df = spark.sql(
+  """
+    |SELECT *
+    |FROM Countries
+    |WHERE country LIKE "%e%d"
+    |""".stripMargin
+)
+
+// Problem 6
+df = spark.sql(
+  """
+    |SELECT *
+    |FROM Countries
+    |WHERE country LIKE "%ia"
+    |""".stripMargin)
+
+// Problem 7
+df = spark.sql(
+  """
+    |SELECT t1 + 1 as t2
+    |FROM (
+    |SELECT cast(temp as int) + 1 as t1
+    |FROM Cities
+    |)
+    |""".stripMargin)

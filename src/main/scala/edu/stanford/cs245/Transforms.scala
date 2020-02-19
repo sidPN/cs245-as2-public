@@ -1,8 +1,8 @@
 package edu.stanford.cs245
 
+import edu.stanford.cs245.Transforms.isDistUdf
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.expressions.{And, BinaryComparison, EqualTo, Expression, GreaterThan,
-  GreaterThanOrEqual, LessThan, LessThanOrEqual, Literal, Multiply, ScalaUDF}
+import org.apache.spark.sql.catalyst.expressions.{And, BinaryComparison, EqualTo, Expression, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Literal, Multiply, ScalaUDF}
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Sort}
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.types.{BooleanType, DoubleType}
@@ -28,7 +28,7 @@ object Transforms {
 
   // Return any additional optimization passes here
   def getOptimizationPasses(spark: SparkSession): Seq[Rule[LogicalPlan]] = {
-    Seq(EliminateZeroDists(spark))
+    Seq(EliminateZeroDists(spark), DistanceNonNegative(spark))
   }
 
   case class EliminateZeroDists(spark: SparkSession) extends Rule[LogicalPlan] {
@@ -37,4 +37,19 @@ object Transforms {
         udf.children(1) == udf.children(3) => Literal(0.0, DoubleType)
     }
   }
+
+  case class DistanceNonNegative(spark: SparkSession) extends Rule[LogicalPlan] {
+    def apply(plan: LogicalPlan): LogicalPlan = plan.transformAllExpressions {
+      case LessThan(udf: ScalaUDF, Literal(c: Double, DoubleType)) if isDistUdf(udf) && c <= 0 => Literal(false, BooleanType)
+      case GreaterThan(udf1: ScalaUDF, udf2: ScalaUDF) if isDistUdf(udf1) && isDistUdf(udf2) =>
+        GreaterThan(getDistSqUdf(udf1.children), getDistSqUdf(udf2.children))
+      case GreaterThan(udf: ScalaUDF, Literal(c: Double, DoubleType)) if isDistUdf(udf) =>
+        GreaterThan(getDistSqUdf(udf.children), Literal(c*c, DoubleType))
+      case EqualTo(udf: ScalaUDF, Literal(c: Double, DoubleType)) if isDistUdf(udf) && c <= 0 => Literal(false, BooleanType)
+      case GreaterThanOrEqual(Literal(c: Double, DoubleType), udf: ScalaUDF) if isDistUdf(udf) && c <= 0 => Literal(false, BooleanType)
+      case LessThanOrEqual(Literal(c: Double, DoubleType), udf: ScalaUDF) if isDistUdf(udf) && c < 0 => Literal(true, BooleanType)
+    }
+  }
+
+
 }
