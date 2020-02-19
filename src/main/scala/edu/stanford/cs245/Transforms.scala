@@ -35,6 +35,10 @@ object Transforms {
     def apply(plan: LogicalPlan): LogicalPlan = plan.transformAllExpressions {
       case udf: ScalaUDF if isDistUdf(udf) && udf.children(0) == udf.children(2) &&
         udf.children(1) == udf.children(3) => Literal(0.0, DoubleType)
+      case EqualTo(udf: ScalaUDF, Literal(c: Double, DoubleType))
+        if isDistUdf(udf) && c == 0 => And(
+        EqualTo(udf.children(0), udf.children(2)), EqualTo(udf.children(1), udf.children(3))
+      )
     }
   }
 
@@ -45,7 +49,7 @@ object Transforms {
         GreaterThan(getDistSqUdf(udf1.children), getDistSqUdf(udf2.children))
       case GreaterThan(udf: ScalaUDF, Literal(c: Double, DoubleType)) if isDistUdf(udf) =>
         GreaterThan(getDistSqUdf(udf.children), Literal(c*c, DoubleType))
-      case EqualTo(udf: ScalaUDF, Literal(c: Double, DoubleType)) if isDistUdf(udf) && c <= 0 => Literal(false, BooleanType)
+      case EqualTo(udf: ScalaUDF, Literal(c: Double, DoubleType)) if isDistUdf(udf) && c < 0 => Literal(false, BooleanType)
       case GreaterThanOrEqual(Literal(c: Double, DoubleType), udf: ScalaUDF) if isDistUdf(udf) && c <= 0 => Literal(false, BooleanType)
       case LessThanOrEqual(Literal(c: Double, DoubleType), udf: ScalaUDF) if isDistUdf(udf) && c < 0 => Literal(true, BooleanType)
     }
